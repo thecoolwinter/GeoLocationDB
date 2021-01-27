@@ -3,16 +3,16 @@ import Redis
 import Foundation
 
 public extension Request {
-    var geoLocationDB: GeoLocationDB {
+    public var geoLocationDB: GeoLocationDB {
         .init(request: self)
     }
 }
 
 public struct GeoLocationConfig {
-    var apiKey: String
-    var cache: Bool = false
+    public var apiKey: String
+    public var cache: Bool = false
     /// Cache expiration in seconds, defaults to one day
-    var cacheExpiration: Int = 86400
+    public var cacheExpiration: Int = 86400
 }
 
 public struct GeoLocationData: Content, RESPValueConvertible {
@@ -28,16 +28,16 @@ public struct GeoLocationData: Content, RESPValueConvertible {
      "state": "Minnesota"
      }
      */
-    var country_code: String
-    var country_name: String
-    var city: String
-    var postal: String
-    var latitude: Double
-    var longitude: Double
-    var IP: String
-    var state: String
+    public var country_code: String
+    public var country_name: String
+    public var city: String
+    public var postal: String
+    public var latitude: Double
+    public var longitude: Double
+    public var IP: String
+    public var state: String
     
-    init(country_code: String, country_name: String, city: String, postal: String, latitude: Double, longitude: Double, IP: String, state: String) {
+    public init(country_code: String, country_name: String, city: String, postal: String, latitude: Double, longitude: Double, IP: String, state: String) {
         self.country_code = country_code
         self.country_name = country_name
         self.city = city
