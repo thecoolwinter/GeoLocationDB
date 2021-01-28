@@ -8,7 +8,6 @@
 import Vapor
 
 extension Application {
-    
     public struct GeoLocationDB {
         let app: Application
         

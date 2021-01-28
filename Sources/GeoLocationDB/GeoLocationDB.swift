@@ -3,16 +3,22 @@ import Redis
 import Foundation
 
 public extension Request {
-    public var geoLocationDB: GeoLocationDB {
+    var geoLocationDB: GeoLocationDB {
         .init(request: self)
     }
 }
 
 public struct GeoLocationConfig {
-    public var apiKey: String
-    public var cache: Bool = false
+    var apiKey: String
+    var cache: Bool = false
     /// Cache expiration in seconds, defaults to one day
-    public var cacheExpiration: Int = 86400
+    var cacheExpiration: Int = 86400
+    
+    public init(apiKey: String, cache: Bool = false, cacheExpiration: Int = 86400) {
+        self.apiKey = apiKey
+        self.cache = cache
+        self.cacheExpiration = cacheExpiration
+    }
 }
 
 public struct GeoLocationData: Content, RESPValueConvertible {
