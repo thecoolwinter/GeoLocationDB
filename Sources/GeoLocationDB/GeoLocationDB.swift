@@ -1,4 +1,5 @@
 import Vapor
+import Fluent
 import Redis
 import Foundation
 
@@ -21,51 +22,54 @@ public struct GeoLocationConfig {
     }
 }
 
-public struct GeoLocationData: Content, RESPValueConvertible {
+public final class GeoLocationData: Content, RESPValueConvertible, Fields {
+    
     /* Example Data
      {
      "country_code": "US"
      "country_name": "United States"
-     "city": "Cloquet"
-     "postal": "55720"
      "latitude": "46.7546"
      "longitude": "-92.5408"
-     "IP": "50.81.224.152"
-     "state": "Minnesota"
+     "IPv4": "50.81.224.152"
      }
      */
-    public var country_code: String
-    public var country_name: String
-    public var city: String
-    public var postal: String
-    public var latitude: Double
-    public var longitude: Double
-    public var IP: String
-    public var state: String
+    @Field(key: "country_code")
+    public var country_code: String?
+    @Field(key: "country_name")
+    public var country_name: String?
+    @Field(key: "latitude")
+    public var latitude: String?
+    @Field(key: "longitude")
+    public var longitude: String?
+    @Field(key: "IPv4")
+    public var IPv4: String?
     
-    public init(country_code: String, country_name: String, city: String, postal: String, latitude: Double, longitude: Double, IP: String, state: String) {
+    public init() { }
+    
+    public init(country_code: String?, country_name: String?, latitude: String?, longitude: String?, IPv4: String?) {
         self.country_code = country_code
         self.country_name = country_name
-        self.city = city
-        self.postal = postal
         self.latitude = latitude
         self.longitude = longitude
-        self.IP = IP
-        self.state = state
+        self.IPv4 = IPv4
     }
     
     public init?(fromRESP value: RESPValue) {
         let decoder = JSONDecoder()
         guard let data = value.data else { return nil }
         guard let newSelf = try? decoder.decode(GeoLocationData.self, from: data) else { return nil }
-        self = newSelf
+        self.country_code = newSelf.country_code
+        self.country_name = newSelf.country_name
+        self.latitude = newSelf.latitude
+        self.longitude = newSelf.longitude
+        self.IPv4 = newSelf.IPv4
     }
     
     public func convertedToRESPValue() -> RESPValue {
         let encoder = JSONEncoder()
         let data = try! encoder.encode(self)
         let string = String(data: data, encoding: .utf8) ?? "{}"
-        return RESPValue.simpleString(ByteBuffer(string: string))
+        return RESPValue.bulkString(ByteBuffer(string: string))
     }
 }
 
@@ -92,15 +96,15 @@ public struct GeoLocationDB {
     }
     
     private func urlFromIp(_ ip: String) -> URI {
-        return URI(string: baseUrl + ip)
+        return URI(string: baseUrl + "/" + ip)
     }
     
     /// Gets a `GeoLocationData` object using the API
     /// - Parameter ip: The IP to look up
     /// - Returns: A `GeoLocationData` object for the IP Address
-    public func locationDataFrom(ip: String) -> EventLoopFuture<GeoLocationData> {
+    public func locationDataFrom(ip: String) -> EventLoopFuture<GeoLocationData?> {
         if config.cache {
-            return application.redis.get(RedisKey(rawValue: ip)!, as: GeoLocationData.self).flatMap { (maybeData) -> EventLoopFuture<GeoLocationData> in
+            return request.redis.get(RedisKey(rawValue: ip)!, asJSON: GeoLocationData.self).flatMap { (maybeData) -> EventLoopFuture<GeoLocationData?> in
                 if let data = maybeData {
                     return request.eventLoop.makeSucceededFuture(data)
                 } else {
@@ -112,13 +116,21 @@ public struct GeoLocationDB {
         return getDataFromServer(ip)
     }
     
-    private func getDataFromServer(_ ip: String) -> EventLoopFuture<GeoLocationData> {
-        return request.client.get(urlFromIp(ip)).flatMap { (res) -> EventLoopFuture<GeoLocationData> in
-            let geoData = try! res.content.decode(GeoLocationData.self)
-            if config.cache {
-                return request.application.redis.set(RedisKey(rawValue: ip)!, to: geoData, onCondition: .none, expiration: .seconds(config.cacheExpiration)).transform(to: geoData)
+    private func getDataFromServer(_ ip: String) -> EventLoopFuture<GeoLocationData?> {
+        return request.client.get(urlFromIp(ip)).flatMap { (res) -> EventLoopFuture<GeoLocationData?> in
+            var response = res
+            response.headers.contentType = .json // Fix the content-type
+            if let geoData = try? response.content.decode(GeoLocationData.self) {
+                if config.cache {
+                    let key = RedisKey(ip)
+                    return request.redis.set(key, toJSON: geoData)
+                        .flatMap { return request.redis.expire(key, after: .seconds(Int64(config.cacheExpiration))) }
+                        .transform(to: geoData)
+                } else {
+                    return request.eventLoop.makeSucceededFuture(geoData)
+                }
             } else {
-                return request.eventLoop.makeSucceededFuture(geoData)
+                return request.eventLoop.makeSucceededFuture(nil)
             }
         }
     }
