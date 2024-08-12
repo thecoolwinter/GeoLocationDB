@@ -1,5 +1,8 @@
 # GeoLocationDB
 
+> [!CAUTION]
+> This repository has been archived since the shutdown of the geolocation-db service. See [#1](https://github.com/thecoolwinter/GeoLocationDB/issues/1) for discussion. There are no plans to replace or fix this repository.
+
 Uses the [https://geolocation-db.com](https://geolocation-db.com) api to get location information about an ip address. 
 
 ## Features
